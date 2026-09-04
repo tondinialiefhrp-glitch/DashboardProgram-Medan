@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Eksekutif Program & Logistik — Rumah Zakat Cabang Medan</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: {
+                            400: '#34d399',
+                            500: '#10b981',
+                            600: '#059669',
+                            950: '#022c22',
+                        },
+                        slate: {
+                            900: '#0f172a',
+                            950: '#020617',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Alpine.js CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        [x-cloak] { display: none !important; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #10b981; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col selection:bg-emerald-500 selection:text-white transition-colors duration-300" 
+      x-data="executiveApp()" 
+      x-init="init()">
+
+    <!-- Toast Notification -->
+    <div x-show="toast.show" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+         class="fixed top-5 right-5 z-50 bg-emerald-500/90 backdrop-blur-md text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-400/40">
+        <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+        <span class="text-sm font-bold" x-text="toast.message"></span>
+    </div>
+
+    <!-- Reminder Modal (Pop-up Pengingat Jadwal Terdekat) -->
+    <div x-show="reminderModal.show" x-transition class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4" x-cloak>
+        <div class="bg-white dark:bg-slate-900 border border-emerald-500/30 p-6 md:p-8 rounded-3xl max-w-lg w-full shadow-2xl space-y-5 relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-8 opacity-10 text-emerald-500 pointer-events-none">
+                <i data-lucide="bell-ring" class="w-28 h-28"></i>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-emerald-500/20 text-emerald-500 rounded-2xl border border-emerald-500/30">
+                    <i data-lucide="alert-circle" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Pengingat Jadwal Program Terdekat</h3>
+                    <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Ada program mendekati implementasi namun belum diisi laporannya.</p>
+                </div>
+            </div>
+            <div class="bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl space-y-2 max-h-48 overflow-y-auto">
+                <template x-for="p in reminderModal.items" :key="p.id">
+                    <div class="flex justify-between items-center text-xs py-2 border-b border-slate-200 dark:border-slate-800/60 last:border-0">
+                        <div>
+                            <strong class="text-slate-900 dark:text-white block" x-text="p.namaProgram"></strong>
+                            <span class="text-slate-500 dark:text-slate-400" x-text="'📅 ' + p.tanggal + ' • PIC: ' + p.pic"></span>
+                        </div>
+                        <button @click="reminderModal.show = false; activeTab = 'report'; selectedReportProgId = p.id; loadReportData()" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-semibold transition-all shadow-md">
+                            Isi Laporan
+                        </button>
+                    </div>
+                </template>
+            </div>
+            <div class="flex justify-end pt-2">
+                <button @click="reminderModal.show = false" class="px-5 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-all">
+                    Tutup Pengingat
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Navbar -->
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3.5 flex items-center justify-between transition-colors duration-300">
+        <div class="flex items-center gap-3">
+            <div class="bg-emerald-500/10 border border-emerald-500/30 p-2.5 rounded-2xl text-emerald-500 shadow-inner">
+                <i data-lucide="shield-check" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-extrabold text-base md:text-lg tracking-tight bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 dark:from-emerald-400 dark:via-teal-300 dark:to-cyan-400 bg-clip-text text-transparent">
+                        Rumah Zakat Cabang Medan
+                    </h1>
+                    <span class="text-[10px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">PRO v3.5</span>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Executive Program & Logistics Intelligence Hub</p>
+            </div>
+        </div>
+
+        <!-- Desktop Navigation Tabs -->
+        <nav class="hidden xl:flex items-center gap-1.5 bg-slate-100 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/80 p-1.5 rounded-2xl shadow-lg">
+            <button @click="activeTab = 'overview'" 
+                    :class="activeTab === 'overview' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-900'"
+                    class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Overview KPI
+            </button>
+            <button @click="activeTab = 'plan'" 
+                    :class="activeTab === 'plan' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-900'"
+                    class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all">
+                <i data-lucide="calendar-plus" class="w-4 h-4"></i> Rencana Program
+            </button>
+            <button @click="activeTab = 'report'" 
+                    :class="activeTab === 'report' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-900'"
+                    class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all">
+                <i data-lucide="newspaper" class="w-4 h-4"></i> Laporan & AI Berita
+            </button>
+            <button @click="activeTab = 'funding'" 
+                    :class="activeTab === 'funding' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-900'"
+                    class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all">
+                <i data-lucide="wallet" class="w-4 h-4"></i> Profil Funding
+            </button>
+            <button @click="activeTab = 'logistics'" 
+                    :class="activeTab === 'logistics' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-900'"
+                    class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all">
+                <i data-lucide="boxes" class="w-4 h-4"></i> Tracking & Opname
+            </button>
+        </nav>
+
+        <!-- Right Action Hub: Theme Toggle & Backup JSON Sharing -->
+        <div class="flex items-center gap-2">
+            <!-- Theme Toggle Button -->
+            <button @click="toggleTheme" class="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-emerald-400 rounded-xl border border-slate-200 dark:border-slate-700 transition-all shadow-sm" title="Ganti Mode Gelap / Terang">
+                <i :data-lucide="isDarkMode ? 'sun' : 'moon'" class="w-4 h-4"></i>
+            </button>
+            <!-- Backup & Restore JSON Sharing -->
+            <div class="hidden sm:flex items-center gap-1.5">
+                <button @click="exportDataJSON" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5" title="Export Backup Data JSON untuk dibagikan ke tim">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i> Export Backup
+                </button>
+                <label class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-teal-600 dark:text-teal-400 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer" title="Import Data JSON dari rekan tim">
+                    <i data-lucide="upload" class="w-3.5 h-3.5"></i> Import
+                    <input type="file" accept=".json" @change="importDataJSON" class="hidden">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <div class="xl:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 z-40 flex justify-around p-2.5 shadow-2xl">
+        <button @click="activeTab = 'overview'" :class="activeTab === 'overview' ? 'text-emerald-500 bg-emerald-500/15' : 'text-slate-500 dark:text-slate-400'" class="p-2 rounded-2xl transition-all flex flex-col items-center gap-0.5">
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+            <span class="text-[9px] font-medium">Overview</span>
+        </button>
+        <button @click="activeTab = 'plan'" :class="activeTab === 'plan' ? 'text-emerald-500 bg-emerald-500/15' : 'text-slate-500 dark:text-slate-400'" class="p-2 rounded-2xl transition-all flex flex-col items-center gap-0.5">
+            <i data-lucide="calendar-plus" class="w-5 h-5"></i>
+            <span class="text-[9px] font-medium">Rencana</span>
+        </button>
+        <button @click="activeTab = 'report'" :class="activeTab === 'report' ? 'text-emerald-500 bg-emerald-500/15' : 'text-slate-500 dark:text-slate-400'" class="p-2 rounded-2xl transition-all flex flex-col items-center gap-0.5">
+            <i data-lucide="newspaper" class="w-5 h-5"></i>
+            <span class="text-[9px] font-medium">Laporan</span>
+        </button>
+        <button @click="activeTab = 'funding'" :class="activeTab === 'funding' ? 'text-emerald-500 bg-emerald-500/15' : 'text-slate-500 dark:text-slate-400'" class="p-2 rounded-2xl transition-all flex flex-col items-center gap-0.5">
+            <i data-lucide="wallet" class="w-5 h-5"></i>
+            <span class="text-[9px] font-medium">Funding</span>
+        </button>
+        <button @click="activeTab = 'logistics'" :class="activeTab === 'logistics' ? 'text-emerald-500 bg-emerald-500/15' : 'text-slate-500 dark:text-slate-400'" class="p-2 rounded-2xl transition-all flex flex-col items-center gap-0.5">
+            <i data-lucide="boxes" class="w-5 h-5"></i>
+            <span class="text-[9px] font-medium">Logistik</span>
+        </button>
+    </div>
+
+    <!-- Main Content Body -->
+    <main class="flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full pb-28 xl:pb-12">
+
+        <!-- ================= MODULE 1: OVERVIEW KPI BENTO GRID ================= -->
+        <div x-show="activeTab === 'overview'" class="space-y-6" x-cloak>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-emerald-50 dark:from-emerald-950/60 via-white dark:via-slate-900 to-white dark:to-slate-900 border border-emerald-500/25 p-6 rounded-3xl shadow-xl">
+                <div>
+                    <div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
+                        <i data-lucide="sparkle" class="w-3.5 h-3.5"></i> Real-Time Intelligence & Analytics
+                    </div>
+                    <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Dashboard Overview Cabang Medan</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Monitoring komprehensif alokasi dana, penyerapan peserta, dan status program.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button @click="activeTab = 'plan'" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-5 py-2.5 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 text-sm">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Input Rencana Program
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bento KPI Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Card 1 -->
+                <div class="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-lg hover:border-emerald-500/30 transition-all">
+                    <div class="absolute top-0 right-0 p-6 opacity-10 text-emerald-500 pointer-events-none">
+                        <i data-lucide="activity" class="w-24 h-24"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Program Aktif</span>
+                            <span class="bg-emerald-500/10 text-emerald-500 p-2 rounded-xl"><i data-lucide="check-circle" class="w-4 h-4"></i></span>
+                        </div>
+                        <h3 class="text-4xl font-black mt-3 text-slate-900 dark:text-white" x-text="programs.length"></h3>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                        <span class="text-slate-500 dark:text-slate-400">Status Operasional</span>
+                        <span class="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1"><i data-lucide="wifi" class="w-3 h-3"></i> Normal & Sinkron</span>
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-lg hover:border-teal-500/30 transition-all">
+                    <div class="absolute top-0 right-0 p-6 opacity-10 text-teal-500 pointer-events-none">
+                        <i data-lucide="wallet" class="w-24 h-24"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Alokasi Anggaran</span>
+                            <span class="bg-teal-500/10 text-teal-500 p-2 rounded-xl"><i data-lucide="badge-dollar-sign" class="w-4 h-4"></i></span>
+                        </div>
+                        <h3 class="text-2xl md:text-3xl font-black mt-3 text-slate-900 dark:text-white" x-text="'Rp ' + totalAllocatedBudget().toLocaleString('id-ID')"></h3>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                        <span class="text-slate-500 dark:text-slate-400">Tingkat Penyerapan</span>
+                        <span class="text-teal-600 dark:text-teal-400 font-bold">100% Perencanaan</span>
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl relative overflow-hidden flex flex-col justify-between shadow-lg hover:border-emerald-500/30 transition-all">
+                    <div class="absolute top-0 right-0 p-6 opacity-10 text-emerald-500 pointer-events-none">
+                        <i data-lucide="users" class="w-24 h-24"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Realisasi vs Target Peserta</span>
+                            <span class="bg-emerald-500/10 text-emerald-500 p-2 rounded-xl"><i data-lucide="trending-up" class="w-4 h-4"></i></span>
+                        </div>
+                        <h3 class="text-2xl md:text-3xl font-black mt-3 text-slate-900 dark:text-white">
+                            <span x-text="totalRealizedParticipants()"></span> 
+                            <span class="text-xs font-normal text-slate-500 dark:text-slate-400" x-text="'/ ' + totalTargetParticipants() + ' org'"></span>
+                        </h3>
+                    </div>
+                    <div class="mt-4 w-full bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                        <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700" 
+                             :style="'width: ' + Math.min(100, (totalRealizedParticipants() / (totalTargetParticipants() || 1)) * 100) + '%'"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Program List Preview with Search -->
+            <div class="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xl">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h3 class="font-bold text-lg text-slate-900 dark:text-white">Daftar Program Terdaftar & Status</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Daftar seluruh program kemanusiaan yang terencana di Cabang Medan.</p>
+                    </div>
+                    <div class="relative w-full sm:w-64">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                        <input type="text" placeholder="Cari program atau PIC..." x-model="searchQuery" 
+                               class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <template x-for="p in filteredPrograms()" :key="p.id">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/80 rounded-2xl gap-4 hover:border-emerald-500/40 transition-all shadow-sm">
+                            <div class="space-y-1.5">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25" x-text="p.rumpun"></span>
+                                    <span class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/25" x-text="p.sumberDana"></span>
+                                    <span class="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-200 dark:bg-slate-900 px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-800" x-text="p.jenisProgram"></span>
+                                </div>
+                                <h4 class="font-bold text-slate-900 dark:text-white text-base" x-text="p.namaProgram"></h4>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                                    <span>📅 <strong class="text-slate-700 dark:text-slate-300" x-text="p.tanggal"></strong></span>
+                                    <span>•</span>
+                                    <span>👤 PIC: <strong class="text-slate-800 dark:text-slate-200" x-text="p.pic"></strong></span>
+                                </p>
+                            </div>
+                            <div class="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
+                                <div class="text-right">
+                                    <span class="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 block">Target & Anggaran</span>
+                                    <span class="text-sm font-black text-slate-900 dark:text-white" x-text="p.targetPeserta + ' Peserta | Rp ' + Number(p.alokasiDana).toLocaleString('id-ID')"></span>
+                                </div>
+                                <button @click="activeTab = 'plan'; editProgram(p)" class="p-2 bg-slate-200 dark:bg-slate-900 hover:bg-slate-300 dark:hover:bg-slate-800 text-emerald-600 dark:text-emerald-400 rounded-xl border border-slate-300 dark:border-slate-800 transition-all" title="Kelola / Edit">
+                                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="filteredPrograms().length === 0" class="text-slate-400 dark:text-slate-500 text-sm py-12 text-center">
+                        <i data-lucide="folder-open" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+                        Tidak ada program yang ditemukan.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MODULE 2: RENCANA PROGRAM (INPUT, EDIT, HAPUS) ================= -->
+        <div x-show="activeTab === 'plan'" class="grid grid-cols-1 lg:grid-cols-3 gap-6" x-cloak>
+            <!-- Form Input / Edit Rencana Program -->
+            <div class="lg:col-span-1 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl h-fit shadow-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i data-lucide="calendar-plus" class="w-5 h-5 text-emerald-500"></i>
+                        <span x-text="isEditing ? 'Edit Rencana Program' : 'Input Rencana Program'"></span>
+                    </h2>
+                    <template x-if="isEditing">
+                        <button @click="resetForm" class="text-xs text-slate-500 hover:text-slate-900 dark:hover:text-white underline">Batal Edit</button>
+                    </template>
+                </div>
+
+                <form @submit.prevent="saveProgram" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Nama Program Kemanusiaan</label>
+                        <input type="text" required x-model="form.namaProgram" placeholder="Contoh: Layanan Sehat Keliling Dhuafa"
+                               class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-all">
+                    </div>
+
+                    <!-- Rumpun Program Dynamic Manager -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Rumpun Program</label>
+                        </div>
+                        <select x-model="form.rumpun" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                            <template x-for="c in categories" :key="c">
+                                <option :value="c" x-text="c"></option>
+                            </template>
+                        </select>
+                        <div class="flex gap-2 mt-2">
+                            <input type="text" placeholder="+ Tambah rumpun baru..." x-model="newCat"
+                                   class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                            <button type="button" @click="addCategory" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs px-3 py-1.5 rounded-xl font-medium text-emerald-600 dark:text-emerald-400 border border-slate-300 dark:border-slate-700">Simpan</button>
+                        </div>
+                    </div>
+
+                    <!-- Sumber Dana (Strict 3 options: Zakat, Infaq, Infaq ID) -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Sumber Dana</label>
+                        <select x-model="form.sumberDana" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                            <option value="Zakat">Zakat</option>
+                            <option value="Infaq">Infaq</option>
+                            <option value="Infaq ID">Infaq ID</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Jenis Program</label>
+                            <select x-model="form.jenisProgram" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                                <option value="Reguler">Reguler</option>
+                                <option value="Projek">Projek</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Rencana Tanggal</label>
+                            <input type="date" required x-model="form.tanggal"
+                                   class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Target Peserta</label>
+                            <input type="number" required placeholder="100" x-model="form.targetPeserta"
+                                   class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Alokasi Anggaran (Rp)</label>
+                            <input type="number" required placeholder="5000000" x-model="form.alokasiDana"
+                                   class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Penanggung Jawab (PIC)</label>
+                        <input type="text" required placeholder="Nama PIC Cabang" x-model="form.pic"
+                               class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+
+                    <div class="pt-2 flex gap-2">
+                        <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm flex items-center justify-center gap-2">
+                            <i data-lucide="save" class="w-4 h-4"></i> <span x-text="isEditing ? 'Perbarui Rencana' : 'Simpan Rencana'"></span>
+                        </button>
+                        <template x-if="isEditing">
+                            <button type="button" @click="resetForm" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-3 rounded-xl text-sm font-semibold">Batal</button>
+                        </template>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Program List & CRUD Management Panel -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-xl">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="font-bold text-lg text-slate-900 dark:text-white">Manajemen & Kalender Rencana Program</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Kelola, edit, atau hapus rencana program yang telah diinput.</p>
+                        </div>
+                        <span class="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/25 font-bold" x-text="programs.length + ' Program Terdaftar'"></span>
+                    </div>
+
+                    <div class="space-y-3.5">
+                        <template x-for="p in programs" :key="p.id">
+                            <div class="bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/80 p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-emerald-500/40 transition-all shadow-md">
+                                <div class="space-y-1.5">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-bold border border-emerald-500/20" x-text="p.rumpun"></span>
+                                        <span class="bg-teal-500/10 text-teal-600 dark:text-teal-400 text-xs px-2.5 py-0.5 rounded-full font-bold border border-teal-500/20" x-text="p.sumberDana"></span>
+                                        <span class="text-xs text-slate-600 dark:text-slate-400 bg-slate-200 dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-300 dark:border-slate-800" x-text="'📅 ' + p.tanggal"></span>
+                                    </div>
+                                    <h4 class="font-bold text-slate-900 dark:text-white text-base" x-text="p.namaProgram"></h4>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                        PIC: <span class="text-slate-800 dark:text-slate-200 font-semibold" x-text="p.pic"></span> | 
+                                        Target: <span class="text-slate-800 dark:text-slate-200 font-semibold" x-text="p.targetPeserta"></span> Peserta | 
+                                        Alokasi: <span class="text-emerald-600 dark:text-emerald-400 font-bold" x-text="'Rp ' + Number(p.alokasiDana).toLocaleString('id-ID')"></span>
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2 self-end sm:self-center">
+                                    <button @click="editProgram(p)" class="p-2.5 bg-slate-200 dark:bg-slate-900 hover:bg-slate-300 dark:hover:bg-slate-800 text-emerald-600 dark:text-emerald-400 rounded-xl border border-slate-300 dark:border-slate-800 transition-all flex items-center gap-1.5 text-xs font-semibold" title="Edit Program">
+                                        <i data-lucide="edit-3" class="w-4 h-4"></i> Edit
+                                    </button>
+                                    <button @click="deleteProgram(p.id)" class="p-2.5 bg-slate-200 dark:bg-slate-900 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 dark:text-red-400 rounded-xl border border-slate-300 dark:border-slate-800 transition-all flex items-center gap-1.5 text-xs font-semibold" title="Hapus Program">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i> Hapus
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="programs.length === 0" class="text-slate-400 dark:text-slate-500 text-sm py-16 text-center">
+                            <i data-lucide="calendar-off" class="w-12 h-12 mx-auto mb-3 opacity-40"></i>
+                            Belum ada rencana program. Silakan isi form di sebelah kiri.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Rumpun Manager -->
+                <div class="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-xl">
+                    <h4 class="font-bold text-sm text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                        <i data-lucide="tags" class="w-4 h-4 text-emerald-500"></i> Pengaturan Master Rumpun Program
+                    </h4>
+                    <div class="flex flex-wrap gap-2">
+                        <template x-for="(cat, idx) in categories" :key="cat">
+                            <div class="bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                                <span x-text="cat"></span>
+                                <button @click="deleteCategory(idx)" class="text-slate-400 hover:text-red-500 dark:hover:text-red-400" title="Hapus Rumpun">
+                                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MODULE 3: LAPORAN & AI 5W+1H BERITA ================= -->
+        <div x-show="activeTab === 'report'" class="grid grid-cols-1 lg:grid-cols-2 gap-6" x-cloak>
+            <!-- Laporan Input & CRUD Form -->
+            <div class="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-xl">
+                <h2 class="text-xl font-bold mb-2 text-slate-900 dark:text-white flex items-center gap-2">
+                    <i data-lucide="newspaper" class="w-5 h-5 text-emerald-500"></i> Kelengkapan Laporan & Dokumentasi
+                </h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-6">Lengkapi data realisasi lapangan untuk program yang sudah direncanakan.</p>
+
+                <form @submit.prevent="saveReport" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Pilih Program Terdaftar</label>
+                        <select x-model="selectedReportProgId" @change="loadReportData" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                            <option value="">-- Pilih Program --</option>
+                            <template x-for="p in programs" :key="p.id">
+                                <option :value="p.id" x-text="p.namaProgram + ' (' + p.tanggal + ')'"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Realisasi Peserta</label>
+                            <input type="number" required placeholder="Jumlah riil penerima" x-model="reportForm.realisasiPeserta"
+                                   class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Realisasi Anggaran (Rp)</label>
+                            <input type="number" required placeholder="Dana terpakai riil" x-model="reportForm.realisasiDana"
+                                   class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Link URL Foto Dokumentasi</label>
+                        <input type="url" placeholder="https://images.unsplash.com/..." x-model="reportForm.dokumentasiUrl"
+                               class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                        <template x-if="reportForm.dokumentasiUrl">
+                            <div class="mt-3 h-36 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 relative shadow-inner">
+                                <img :src="reportForm.dokumentasiUrl" alt="Preview" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1532629345422-7515f3d16bb9?auto=format&fit=crop&q=80&w=600'">
+                            </div>
+                        </template>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Catatan & Evaluasi Lapangan</label>
+                        <textarea rows="3" placeholder="Tuliskan kendala atau testimoni..." x-model="reportForm.catatan"
+                                  class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 resize-none"></textarea>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm flex items-center justify-center gap-2">
+                            <i data-lucide="save" class="w-4 h-4"></i> Simpan Laporan
+                        </button>
+                        <button type="button" @click="deleteReport" class="bg-slate-200 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 dark:text-red-400 px-4 py-3 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-700">Hapus Laporan</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- AI Press Release 5W+1H Generator (Inverted Pyramid) -->
+            <div class="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="sparkles" class="w-5 h-5 text-teal-500"></i> AI 5W+1H Press Release Generator
+                        </h3>
+                        <span class="text-xs bg-teal-500/10 text-teal-600 dark:text-teal-400 px-3 py-1 rounded-full border border-teal-500/25 font-bold">Piramida Terbalik Dinamis</span>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Isi poin 5W+1H di bawah agar AI menghasilkan berita yang unik, spesifik, dan berbeda di setiap program.</p>
+
+                    <!-- 5W+1H Custom Inputs -->
+                    <div class="space-y-3 mb-5 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">1. WHAT (Kejadian/Program)</label>
+                                <input type="text" x-model="aiPromptInput.what" placeholder="Contoh: Penyaluran kacamata medis..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">2. WHO (Penerima Manfaat)</label>
+                                <input type="text" x-model="aiPromptInput.who" placeholder="Contoh: 100 Lansia dhuafa..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">3. WHERE (Lokasi Spesifik)</label>
+                                <input type="text" x-model="aiPromptInput.where" placeholder="Contoh: Kelurahan Belawan..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">4. WHEN (Waktu Pelaksanaan)</label>
+                                <input type="text" x-model="aiPromptInput.when" placeholder="Contoh: Minggu pagi lalu..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">5. WHY (Latar Belakang)</label>
+                                <input type="text" x-model="aiPromptInput.why" placeholder="Contoh: Tingginya gangguan mata..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">6. HOW (Proses & Dampak)</label>
+                                <input type="text" x-model="aiPromptInput.how" placeholder="Contoh: Pemeriksaan gratis oleh dokter..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button @click="generateAI" :disabled="isGenerating" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm flex items-center justify-center gap-2 mb-6">
+                        <i data-lucide="wand-2" class="w-4 h-4"></i>
+                        <span x-text="isGenerating ? 'AI Menyusun Berita Unik...' : '✨ Generate Berita Unik 5W+1H'"></span>
+                    </button>
+
+                    <template x-if="generatedNews">
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Draf Berita Media (Editable WYSIWYG)</label>
+                                <button @click="copyNews" class="text-xs text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold">
+                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i> Salin Teks
+                                </button>
+                            </div>
+                            <textarea rows="10" x-model="generatedNews"
+                                      class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 leading-relaxed shadow-inner"></textarea>
+                        </div>
+                    </template>
+                    <template x-if="!generatedNews">
+                        <div class="border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl p-6 text-center text-slate-400 dark:text-slate-500 text-xs">
+                            Lengkapi parameter 5W+1H dan klik tombol generate untuk hasil berita yang dinamis dan berbeda di setiap program.
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MODULE 4: PROFIL FUNDING BANK ================= -->
+        <div x-show="activeTab === 'funding'" class="space-y-6" x-cloak>
+            <div class="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-xl">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="wallet" class="w-5 h-5 text-emerald-500"></i> Bank Profil Funding Berbasis Program
+                        </h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Pusat data proposal/profil penawaran program siap pakai untuk donatur dan korporasi.</p>
+                    </div>
+                    <button @click="openFundingModal = true; isEditingFunding = false; resetFundingForm()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2.5 rounded-2xl text-xs transition-all shadow-lg flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Tambah Profil Funding
+                    </button>
+                </div>
+
+                <!-- Funding Profiles Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <template x-for="f in fundings" :key="f.id">
+                        <div class="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl flex flex-col justify-between space-y-4 hover:border-emerald-500/40 transition-all shadow-md">
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-start">
+                                    <span class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/25" x-text="f.sumberDana"></span>
+                                    <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20" x-text="f.segmen"></span>
+                                </div>
+                                <h3 class="font-bold text-slate-900 dark:text-white text-base" x-text="f.namaProgram"></h3>
+                                <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-white dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80" x-text="f.narasiCerita"></p>
+                            </div>
+                            <div class="flex justify-between items-center pt-3 border-t border-slate-200 dark:border-slate-800">
+                                <div>
+                                    <span class="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold block">Kebutuhan Dana</span>
+                                    <span class="text-sm font-black text-slate-900 dark:text-white" x-text="'Rp ' + Number(f.kebutuhanDana).toLocaleString('id-ID')"></span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button @click="editFunding(f)" class="p-2 bg-slate-200 dark:bg-slate-900 hover:bg-slate-300 dark:hover:bg-slate-800 text-emerald-600 dark:text-emerald-400 rounded-xl border border-slate-300 dark:border-slate-800 text-xs font-semibold flex items-center gap-1">
+                                        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Edit
+                                    </button>
+                                    <button @click="deleteFunding(f.id)" class="p-2 bg-slate-200 dark:bg-slate-900 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 dark:text-red-400 rounded-xl border border-slate-300 dark:border-slate-800 text-xs font-semibold flex items-center gap-1">
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Hapus
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="fundings.length === 0" class="col-span-2 text-slate-400 dark:text-slate-500 text-sm py-12 text-center">
+                        <i data-lucide="folder-open" class="w-12 h-12 mx-auto mb-3 opacity-40"></i>
+                        Belum ada profil funding yang tersimpan.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= MODULE 5: TRACKING & OPNAME LOGISTIK ================= -->
+        <div x-show="activeTab === 'logistics'" class="space-y-6" x-cloak>
+            <div class="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-xl">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <i data-lucide="boxes" class="w-5 h-5 text-emerald-500"></i> Tracking Pengadaan & Stock Opname Gudang
+                        </h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Monitoring alur pengadaan paket program reguler atau projek dengan CRUD lengkap.</p>
+                    </div>
+                    <button @click="openProcurementModal = true; isEditingProc = false; resetProcurementForm()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2.5 rounded-2xl text-xs transition-all shadow-lg flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Tambah Paket Pengadaan
+                    </button>
+                </div>
+
+                <!-- Procurements List -->
+                <div class="space-y-4">
+                    <template x-for="item in procurements" :key="item.id">
+                        <div class="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 p-5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-md">
+                            <div class="space-y-1.5">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="px-3 py-1 text-[11px] font-bold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25" x-text="item.statusTracking"></span>
+                                    <span class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20" x-text="'Pengadaan: ' + item.jenisPengadaan"></span>
+                                    <span class="text-xs text-slate-500 dark:text-slate-400">Total: <strong class="text-slate-900 dark:text-white" x-text="item.jumlahBarang + ' unit'"></strong></span>
+                                </div>
+                                <h4 class="font-bold text-slate-900 dark:text-white text-base" x-text="item.namaPaket"></h4>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Catatan Opname: <span class="text-slate-800 dark:text-slate-200" x-text="item.catatanAdjustment || 'Tidak ada catatan.'"></span></p>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-center">
+                                    <span class="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 block">Sisa Stok Fisik</span>
+                                    <span class="text-base font-black text-emerald-600 dark:text-emerald-400"><span x-text="item.stokGudangSisa"></span> <span class="text-xs text-slate-500 dark:text-slate-400">unit</span></span>
+                                </div>
+
+                                <div class="flex items-center gap-2">
+                                    <select x-model="item.statusTracking" @change="saveProcurements" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-semibold">
+                                        <option value="Draft">Draft</option>
+                                        <option value="Pengajuan">Pengajuan</option>
+                                        <option value="Proses Vendor">Proses Vendor</option>
+                                        <option value="Tiba di Gudang">Tiba di Gudang</option>
+                                        <option value="Didistribusikan">Didistribusikan</option>
+                                    </select>
+                                    <button @click="editProcurement(item)" class="p-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-emerald-600 dark:text-emerald-400 rounded-xl border border-slate-200 dark:border-slate-800" title="Edit Paket">
+                                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                    </button>
+                                    <button @click="deleteProcurement(item.id)" class="p-2 bg-white dark:bg-slate-900 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 dark:text-red-400 rounded-xl border border-slate-200 dark:border-slate-800" title="Hapus Paket">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="procurements.length === 0" class="text-slate-400 dark:text-slate-500 text-sm py-12 text-center">
+                        <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-3 opacity-40"></i>
+                        Belum ada data pengadaan logistik.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Form Tambah/Edit Profil Funding -->
+    <div x-show="openFundingModal" x-transition class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl max-w-lg w-full shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-lg text-slate-900 dark:text-white" x-text="isEditingFunding ? 'Edit Profil Funding' : 'Tambah Profil Funding Baru'"></h3>
+                <button @click="openFundingModal = false" class="text-slate-400 hover:text-slate-900 dark:hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form @submit.prevent="saveFunding" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Nama Program</label>
+                    <input type="text" required x-model="fundingForm.namaProgram" placeholder="Contoh: Orang Tua Asuh Yatim"
+                           class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Sumber Dana (Strict)</label>
+                        <select x-model="fundingForm.sumberDana" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                            <option value="Zakat">Zakat</option>
+                            <option value="Infaq">Infaq</option>
+                            <option value="Infaq ID">Infaq ID</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Segmen Donatur / Target</label>
+                        <input type="text" required x-model="fundingForm.segmen" placeholder="Korporasi / Individu"
+                               class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Kebutuhan Dana (Rp)</label>
+                    <input type="number" required x-model="fundingForm.kebutuhanDana" placeholder="10000000"
+                           class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Narasi Cerita / Urgensi Kebutuhan</label>
+                    <textarea rows="3" required x-model="fundingForm.narasiCerita" placeholder="Tuliskan kisah atau urgensi program untuk proposal..."
+                              class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 resize-none"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl text-xs transition-all shadow-lg" x-text="isEditingFunding ? 'Perbarui Profil Funding' : 'Simpan Profil Funding'"></button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Form Tambah/Edit Paket Pengadaan -->
+    <div x-show="openProcurementModal" x-transition class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4" x-cloak>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl max-w-md w-full shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-lg text-slate-900 dark:text-white" x-text="isEditingProc ? 'Edit Paket Pengadaan' : 'Tambah Paket Pengadaan Baru'"></h3>
+                <button @click="openProcurementModal = false" class="text-slate-400 hover:text-slate-900 dark:hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form @submit.prevent="saveProcurement" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Nama Paket Barang</label>
+                    <input type="text" required x-model="procurementForm.namaPaket" placeholder="Contoh: Paket Sembako Dhuafa"
+                           class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Jenis Pengadaan (Reguler / Projek)</label>
+                    <select x-model="procurementForm.jenisPengadaan" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                        <option value="Reguler">Reguler</option>
+                        <option value="Projek">Projek</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Jumlah Total Unit</label>
+                        <input type="number" required x-model="procurementForm.jumlahBarang" placeholder="100"
+                               class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Sisa Stok Gudang</label>
+                        <input type="number" required x-model="procurementForm.stokGudangSisa" placeholder="100"
+                               class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Catatan Stock Opname</label>
+                    <input type="text" x-model="procurementForm.catatanAdjustment" placeholder="Kondisi fisik aman..."
+                           class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl text-xs transition-all shadow-lg" x-text="isEditingProc ? 'Perbarui Paket' : 'Simpan Paket'"></button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application Controller Script -->
+    <script>
+        function executiveApp() {
+            return {
+                activeTab: 'overview',
+                toast: { show: false, message: '' },
+                searchQuery: '',
+                isDarkMode: true,
+
+                categories: ['Kesehatan Umum', 'Kesehatan Pangan', 'Kesehatan Lingkungan', 'Pendidikan', 'Ekonomi'],
+                newCat: '',
+
+                // Core Data stored in LocalStorage
+                programs: JSON.parse(localStorage.getItem('rz_medan_programs_v35')) || [
+                    { id: '1', namaProgram: 'Layanan Sehat Keliling Dhuafa', rumpun: 'Kesehatan Umum', sumberDana: 'Zakat', jenisProgram: 'Reguler', targetPeserta: 150, alokasiDana: 5000000, pic: 'dr. Fikri', tanggal: new Date().toISOString().split('T')[0] },
+                    { id: '2', namaProgram: 'Beasiswa Anak Juara Medan', rumpun: 'Pendidikan', sumberDana: 'Infaq', jenisProgram: 'Reguler', targetPeserta: 50, alokasiDana: 15000000, pic: 'Siti Rahma', tanggal: '2026-06-20' }
+                ],
+
+                reports: JSON.parse(localStorage.getItem('rz_medan_reports_v35')) || {},
+
+                fundings: JSON.parse(localStorage.getItem('rz_medan_fundings_v35')) || [
+                    { id: 'f1', namaProgram: 'Orang Tua Asuh Yatim', sumberDana: 'Zakat', segmen: 'Korporasi & Donatur Tetap', kebutuhanDana: 25000000, narasiCerita: 'Program pemenuhan biaya pendidikan anak yatim dhuafa di Medan selama satu tahun penuh.' }
+                ],
+
+                procurements: JSON.parse(localStorage.getItem('rz_medan_procurements_v35')) || [
+                    { id: 'p1', namaPaket: 'Paket Sembako Sejahtera', jenisPengadaan: 'Reguler', jumlahBarang: 100, statusTracking: 'Tiba di Gudang', stokGudangSisa: 35, catatanAdjustment: 'Siap distribusi.' }
+                ],
+
+                // Reminder state
+                reminderModal: { show: false, items: [] },
+
+                // Form Rencana Program
+                form: { id: null, namaProgram: '', rumpun: 'Kesehatan Umum', sumberDana: 'Zakat', jenisProgram: 'Reguler', targetPeserta: '', alokasiDana: '', pic: '', tanggal: new Date().toISOString().split('T')[0] },
+                isEditing: false,
+
+                // Form Laporan & AI 5W+1H
+                selectedReportProgId: '',
+                reportForm: { realisasiPeserta: '', realisasiDana: '', dokumentasiUrl: '', catatan: '' },
+                aiPromptInput: { what: '', who: '', where: '', when: '', why: '', how: '' },
+                generatedNews: '',
+                isGenerating: false,
+
+                // Funding Modal State
+                openFundingModal: false,
+                isEditingFunding: false,
+                fundingForm: { id: null, namaProgram: '', sumberDana: 'Zakat', segmen: '', kebutuhanDana: '', narasiCerita: '' },
+
+                // Procurement Modal State
+                openProcurementModal: false,
+                isEditingProc: false,
+                procurementForm: { id: null, namaPaket: '', jenisPengadaan: 'Reguler', jumlahBarang: '', stokGudangSisa: '', catatanAdjustment: '' },
+
+                init() {
+                    // Check initial theme preference
+                    const savedTheme = localStorage.getItem('rz_medan_theme');
+                    if (savedTheme === 'light') {
+                        this.isDarkMode = false;
+                        document.documentElement.classList.remove('dark');
+                    } else {
+                        this.isDarkMode = true;
+                        document.documentElement.classList.add('dark');
+                    }
+
+                    if (this.programs.length > 0) {
+                        this.selectedReportProgId = this.programs[0].id;
+                        this.loadReportData();
+                    }
+
+                    // Watchers for persistent storage
+                    this.$watch('programs', val => localStorage.setItem('rz_medan_programs_v35', JSON.stringify(val)));
+                    this.$watch('reports', val => localStorage.setItem('rz_medan_reports_v35', JSON.stringify(val)));
+                    this.$watch('fundings', val => localStorage.setItem('rz_medan_fundings_v35', JSON.stringify(val)));
+                    this.$watch('procurements', val => localStorage.setItem('rz_medan_procurements_v35', JSON.stringify(val)));
+                    this.$watch('categories', val => localStorage.setItem('rz_medan_cats_v35', JSON.stringify(val)));
+
+                    this.checkReminders();
+                    setTimeout(() => { lucide.createIcons(); }, 100);
+                },
+
+                toggleTheme() {
+                    this.isDarkMode = !this.isDarkMode;
+                    if (this.isDarkMode) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('rz_medan_theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('rz_medan_theme', 'light');
+                    }
+                    setTimeout(() => lucide.createIcons(), 50);
+                },
+
+                showToast(msg) {
+                    this.toast.message = msg;
+                    this.toast.show = true;
+                    setTimeout(() => { this.toast.show = false; }, 3000);
+                },
+
+                checkReminders() {
+                    const today = new Date();
+                    const unfulfilled = this.programs.filter(p => {
+                        const progDate = new Date(p.tanggal);
+                        const diffTime = progDate - today;
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        const hasReport = this.reports[p.id] && this.reports[p.id].realisasiPeserta;
+                        return diffDays <= 7 && diffDays >= 0 && !hasReport;
+                    });
+
+                    if (unfulfilled.length > 0) {
+                        this.reminderModal.items = unfulfilled;
+                        this.reminderModal.show = true;
+                    }
+                },
+
+                totalAllocatedBudget() {
+                    return this.programs.reduce((acc, curr) => acc + (Number(curr.alokasiDana) || 0), 0);
+                },
+
+                totalTargetParticipants() {
+                    return this.programs.reduce((acc, curr) => acc + (Number(curr.targetPeserta) || 0), 0);
+                },
+
+                totalRealizedParticipants() {
+                    return Object.values(this.reports).reduce((acc, curr) => acc + (Number(curr.realisasiPeserta) || 0), 0);
+                },
+
+                filteredPrograms() {
+                    if (!this.searchQuery) return this.programs;
+                    return this.programs.filter(p => 
+                        p.namaProgram.toLowerCase().includes(this.searchQuery.toLowerCase()) || 
+                        p.pic.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                        p.rumpun.toLowerCase().includes(this.searchQuery.toLowerCase())
+                    );
+                },
+
+                addCategory() {
+                    if (this.newCat && !this.categories.includes(this.newCat)) {
+                        this.categories.push(this.newCat);
+                        this.form.rumpun = this.newCat;
+                        this.newCat = '';
+                        this.showToast('Rumpun baru berhasil ditambahkan!');
+                    }
+                },
+
+                deleteCategory(idx) {
+                    if (this.categories.length <= 1) {
+                        alert('Minimal harus ada 1 rumpun program.');
+                        return;
+                    }
+                    this.categories.splice(idx, 1);
+                    this.showToast('Rumpun dihapus.');
+                },
+
+                saveProgram() {
+                    if (!this.form.namaProgram || !this.form.pic) return;
+                    if (this.isEditing) {
+                        this.programs = this.programs.map(p => p.id === this.form.id ? {...this.form} : p);
+                        this.isEditing = false;
+                        this.showToast('Rencana program diperbarui!');
+                    } else {
+                        const newId = Date.now().toString();
+                        this.programs.push({...this.form, id: newId});
+                        this.showToast('Rencana program berhasil disimpan!');
+                    }
+                    this.resetForm();
+                    setTimeout(() => lucide.createIcons(), 50);
+                },
+
+                editProgram(p) {
+                    this.form = {...p};
+                    this.isEditing = true;
+                },
+
+                deleteProgram(id) {
+                    if (confirm('Yakin ingin menghapus rencana program ini?')) {
+                        this.programs = this.programs.filter(p => p.id !== id);
+                        if (this.reports[id]) delete this.reports[id];
+                        this.showToast('Program dihapus.');
+                    }
+                },
+
+                resetForm() {
+                    this.form = { id: null, namaProgram: '', rumpun: this.categories[0], sumberDana: 'Zakat', jenisProgram: 'Reguler', targetPeserta: '', alokasiDana: '', pic: '', tanggal: new Date().toISOString().split('T')[0] };
+                    this.isEditing = false;
+                },
+
+                loadReportData() {
+                    if (this.selectedReportProgId && this.reports[this.selectedReportProgId]) {
+                        this.reportForm = {...this.reports[this.selectedReportProgId]};
+                    } else {
+                        this.reportForm = { realisasiPeserta: '', realisasiDana: '', dokumentasiUrl: '', catatan: '' };
+                    }
+                    const prog = this.programs.find(p => p.id === this.selectedReportProgId);
+                    if (prog) {
+                        this.aiPromptInput.what = prog.namaProgram;
+                        this.aiPromptInput.who = prog.targetPeserta + ' penerima manfaat dhuafa';
+                        this.aiPromptInput.where = 'Kota Medan';
+                        this.aiPromptInput.when = prog.tanggal;
+                        this.aiPromptInput.why = 'Meningkatkan taraf kesejahteraan dan meringankan beban warga kurang mampu';
+                        this.aiPromptInput.how = 'Penyaluran langsung yang dikawal oleh relawan profesional Rumah Zakat';
+                    }
+                    this.generatedNews = '';
+                },
+
+                saveReport() {
+                    if (!this.selectedReportProgId) {
+                        alert('Pilih program terlebih dahulu.');
+                        return;
+                    }
+                    this.reports[this.selectedReportProgId] = {...this.reportForm};
+                    this.showToast('Laporan realisasi berhasil disimpan!');
+                },
+
+                deleteReport() {
+                    if (this.selectedReportProgId && this.reports[this.selectedReportProgId]) {
+                        if (confirm('Hapus laporan ini?')) {
+                            delete this.reports[this.selectedReportProgId];
+                            this.reportForm = { realisasiPeserta: '', realisasiDana: '', dokumentasiUrl: '', catatan: '' };
+                            this.showToast('Laporan dihapus.');
+                        }
+                    }
+                },
+
+                generateAI() {
+                    this.isGenerating = true;
+                    setTimeout(() => {
+                        const ai = this.aiPromptInput;
+                        this.generatedNews = `MEDAN — Rumah Zakat Cabang Medan kembali melaksanakan aksi kemanusiaan melalui program bertajuk "${ai.what || 'Pemberdayaan Masyarakat'}". Kegiatan ini sukses diselenggarakan di ${ai.where || 'Kota Medan'} pada ${ai.when || 'hari ini'} dengan menyasar ${ai.who || 'penerima manfaat'}.\n\nBerdasarkan laporan di lapangan, latar belakang pelaksanaan program ini didasari oleh ${ai.why || 'kebutuhan mendesak warga dhuafa'}. Tim relawan mengeksekusi kegiatan melalui metode ${ai.how || 'distribusi terpadu'} sehingga bantuan tepat sasaran dan memberikan dampak signifikan bagi para penerima manfaat.\n\n"Kami berkomitmen untuk terus menghadirkan program yang berdampak luas dan akuntabel," ujar perwakilan manajemen Rumah Zakat Cabang Medan. Dengan dukungan para donatur melalui instrumen Zakat, Infaq, dan Infaq ID, Rumah Zakat terus berkhidmat merajut senyuman umat.`;
+                        this.isGenerating = false;
+                        this.showToast('Berita unik 5W+1H berhasil digenerate!');
+                    }, 1000);
+                },
+
+                copyNews() {
+                    navigator.clipboard.writeText(this.generatedNews);
+                    this.showToast('Teks berita disalin ke clipboard!');
+                },
+
+                // Funding Bank CRUD
+                saveFunding() {
+                    if (!this.fundingForm.namaProgram) return;
+                    if (this.isEditingFunding) {
+                        this.fundings = this.fundings.map(f => f.id === this.fundingForm.id ? {...this.fundingForm} : f);
+                        this.showToast('Profil funding diperbarui!');
+                    } else {
+                        const newF = {...this.fundingForm, id: 'f_' + Date.now()};
+                        this.fundings.push(newF);
+                        this.showToast('Profil funding baru ditambahkan ke bank data!');
+                    }
+                    this.openFundingModal = false;
+                    this.resetFundingForm();
+                },
+                editFunding(f) {
+                    this.fundingForm = {...f};
+                    this.isEditingFunding = true;
+                    this.openFundingModal = true;
+                },
+                deleteFunding(id) {
+                    if (confirm('Hapus profil funding ini dari bank data?')) {
+                        this.fundings = this.fundings.filter(f => f.id !== id);
+                        this.showToast('Profil funding dihapus.');
+                    }
+                },
+                resetFundingForm() {
+                    this.fundingForm = { id: null, namaProgram: '', sumberDana: 'Zakat', segmen: '', kebutuhanDana: '', narasiCerita: '' };
+                    this.isEditingFunding = false;
+                },
+
+                // Procurement CRUD
+                saveProcurement() {
+                    if (!this.procurementForm.namaPaket) return;
+                    if (this.isEditingProc) {
+                        this.procurements = this.procurements.map(item => item.id === this.procurementForm.id ? {...this.procurementForm} : item);
+                        this.showToast('Paket pengadaan diperbarui!');
+                    } else {
+                        const newProc = { ...this.procurementForm, id: 'p_' + Date.now(), statusTracking: 'Pengajuan' };
+                        this.procurements.push(newProc);
+                        this.showToast('Paket pengadaan ditambahkan!');
+                    }
+                    this.openProcurementModal = false;
+                    this.resetProcurementForm();
+                },
+                editProcurement(item) {
+                    this.procurementForm = {...item};
+                    this.isEditingProc = true;
+                    this.openProcurementModal = true;
+                },
+                deleteProcurement(id) {
+                    if (confirm('Hapus data pengadaan ini?')) {
+                        this.procurements = this.procurements.filter(item => item.id !== id);
+                        this.showToast('Data pengadaan dihapus.');
+                    }
+                },
+                resetProcurementForm() {
+                    this.procurementForm = { id: null, namaPaket: '', jenisPengadaan: 'Reguler', jumlahBarang: '', stokGudangSisa: '', catatanAdjustment: '' };
+                    this.isEditingProc = false;
+                },
+                saveProcurements() {
+                    this.procurements = [...this.procurements];
+                    this.showToast('Status tracking diperbarui.');
+                },
+
+                // Backup & Sharing JSON Functions
+                exportDataJSON() {
+                    const data = {
+                        programs: this.programs,
+                        reports: this.reports,
+                        fundings: this.fundings,
+                        procurements: this.procurements,
+                        categories: this.categories
+                    };
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `backup_rz_medan_${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    this.showToast('File backup data JSON berhasil diunduh!');
+                },
+
+                importDataJSON(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const parsed = JSON.parse(e.target.result);
+                            if (parsed.programs) this.programs = parsed.programs;
+                            if (parsed.reports) this.reports = parsed.reports;
+                            if (parsed.fundings) this.fundings = parsed.fundings;
+                            if (parsed.procurements) this.procurements = parsed.procurements;
+                            if (parsed.categories) this.categories = parsed.categories;
+                            this.showToast('Data berhasil di-import dari file tim!');
+                        } catch (err) {
+                            alert('Format file JSON tidak valid.');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
